@@ -218,3 +218,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# Leaf build and local environment
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+playwright-report/
+test-results/
