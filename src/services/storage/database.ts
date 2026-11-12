@@ -1,7 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { Annotation, Book, Collection, ReadingProgress, SyncOperation, Tag, UserPreferences } from '../../types/domain';
 
-interface CachedBook { id: string; accountId: string; bookId: string; blob: Blob; cachedAt: string }
+export interface CachedBook { id: string; accountId: string; bookId: string; blob: Blob; cachedAt: string }
 
 export class ReaderDatabase extends Dexie {
   books!: EntityTable<Book, 'id'>;

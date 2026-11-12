@@ -1,6 +1,7 @@
 export type BookFormat = 'epub' | 'pdf';
 export type SyncStatus = 'synced' | 'saving-local' | 'syncing' | 'offline' | 'auth-required' | 'conflict' | 'failed';
-export type ReaderTheme = 'light' | 'sepia' | 'dark';
+export type ReaderTheme = 'light' | 'sepia' | 'dark' | 'system';
+export type HighlightColor = 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
 
 export interface UserIdentity {
   accountId: string;
@@ -54,7 +55,7 @@ export interface Annotation {
   type: 'highlight' | 'note' | 'bookmark';
   selectedText?: string;
   anchor: LocationAnchor;
-  color?: 'yellow' | 'green' | 'blue' | 'rose';
+  color?: HighlightColor;
   note?: string;
   tagIds: string[];
   createdAt: string;
@@ -97,6 +98,10 @@ export interface UserPreferences {
   fontSize: number;
   lineHeight: number;
   readingWidth: number;
+  pdfScaleMode?: 'fit-page' | 'fit-width' | 'custom';
+  pdfScale?: number;
+  controlsPinned?: boolean;
+  pageMargin?: 'compact' | 'comfortable' | 'wide';
   cacheDownloads: boolean;
   updatedAt: string;
   revision: number;

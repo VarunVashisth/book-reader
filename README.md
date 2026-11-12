@@ -2,7 +2,18 @@
 
 Leaf is a private, local-first personal library built with React 19, TypeScript, Google Drive, and IndexedDB.
 
-> Phase 1 is complete. Drive transfers, real library data, readers, annotations, and remote sync are later phases—not fake features. The displayed books are visual fixtures.
+Leaf starts with an empty library: it does not ship demo or fixture books. Signed-in users can add their own PDF and EPUB files, manage them, and read them locally. Files and reading progress are stored in IndexedDB on the current browser. Google Drive transfer and remote sync are not implemented yet.
+
+## Reader capabilities
+
+- PDF.js canvas rendering with an aligned, selectable text layer and graceful scanned-page detection.
+- Horizontal PDF navigation by controls, keyboard, reading margins, direct page entry, and touch swipe.
+- Fit-page, fit-width, zoom, warm/dark surroundings, auto-hiding controls, and persisted preferences.
+- Incremental PDF text search, bookmarks, highlights, notes, annotation sidebar, and restored progress.
+- EPUB pagination with restored CFI progress, font sizing, line height, and reading themes.
+- Real PDF/EPUB metadata and cover extraction, library sorting/filtering, recent reading, and completion state.
+
+Reader records are isolated by account in IndexedDB. Local accounts are device-local; Drive transfer and cross-device synchronization are still deferred.
 
 ## Develop
 
@@ -16,10 +27,13 @@ npm run dev
 
 Set the public Web OAuth client ID in `VITE_GOOGLE_CLIENT_ID`. Never put a client secret in frontend configuration.
 
+For development without Google OAuth, choose **Create a local account** on the sign-in screen. Local account credentials are salted and hashed, remain in that browser's local storage, and are intended only for testing; they do not provide Drive sync or a production authentication backend.
+
 ```bash
 npm run typecheck
 npm test
 npm run build
+npm run test:e2e
 ```
 
 ## Google Cloud setup
