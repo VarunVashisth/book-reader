@@ -3,7 +3,7 @@ import type { Annotation, HighlightColor, UserPreferences } from '../../types/do
 
 export const DEFAULT_PREFERENCES: Omit<UserPreferences, 'id' | 'accountId' | 'updatedAt'> = {
   theme: 'system', fontFamily: 'Georgia', fontSize: 100, lineHeight: 1.65, readingWidth: 760,
-  cacheDownloads: true, revision: 1, pdfScaleMode: 'fit-page', pdfScale: 1, controlsPinned: false, pageMargin: 'comfortable'
+  cacheDownloads: true, revision: 1, pdfScaleMode: 'fit-page', pdfScale: 1, controlsPinned: false, pageMargin: 'comfortable', readerBrightness: 100
 };
 
 export async function loadPreferences(accountId: string): Promise<UserPreferences> {

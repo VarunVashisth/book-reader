@@ -102,6 +102,7 @@ export interface UserPreferences {
   pdfScale?: number;
   controlsPinned?: boolean;
   pageMargin?: 'compact' | 'comfortable' | 'wide';
+  readerBrightness?: number;
   cacheDownloads: boolean;
   updatedAt: string;
   revision: number;

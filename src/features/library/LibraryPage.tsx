@@ -1,10 +1,11 @@
-import { BookOpen, ChevronDown, Grid2X2, List, MoreHorizontal, Search, Upload, Wifi } from 'lucide-react';
+import { BookOpen, ChevronDown, Grid2X2, List, Moon, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Search, Sun, Upload, Wifi } from 'lucide-react';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../../services/storage/database';
 import type { Book } from '../../types/domain';
 import { useAuthStore } from '../auth/authStore';
 import { addBook, deleteBook, renameBook } from './bookStorage';
+import { useAppTheme } from '../../app/AppTheme';
 
 export function LibraryPage() {
   const [query, setQuery] = useState('');
@@ -13,9 +14,11 @@ export function LibraryPage() {
   const [status, setStatus] = useState<'all'|'reading'|'completed'>('all');
   const [books, setBooks] = useState<Book[]>([]);
   const [message, setMessage] = useState<string>();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('leaf-sidebar-collapsed') === 'true');
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { signOut, accountEmail, authMethod } = useAuthStore();
+  const { theme, toggleTheme } = useAppTheme();
   const accountId = accountEmail ?? authMethod ?? 'local';
   const refresh = async () => setBooks(await db.books.where('accountId').equals(accountId).reverse().sortBy('updatedAt'));
 
@@ -44,11 +47,12 @@ export function LibraryPage() {
 
   const visibleBooks = books.filter((book) => `${book.metadata.title} ${book.metadata.authors.join(' ')}`.toLowerCase().includes(query.toLowerCase())).filter((book) => status === 'all' || (status === 'completed' ? book.progress >= 99.5 : book.progress > 0 && book.progress < 99.5)).sort((a, b) => sort === 'title' ? a.metadata.title.localeCompare(b.metadata.title) : sort === 'author' ? (a.metadata.authors[0] ?? '').localeCompare(b.metadata.authors[0] ?? '') : sort === 'progress' ? b.progress - a.progress : (b.lastOpenedAt ?? b.createdAt).localeCompare(a.lastOpenedAt ?? a.createdAt));
   const currentBook = [...books].filter((book) => book.progress > 0 && book.progress < 99.5).sort((a,b)=>(b.lastOpenedAt ?? '').localeCompare(a.lastOpenedAt ?? ''))[0];
-  return <div className="app-shell">
+  const toggleSidebar = () => setSidebarCollapsed((current) => { localStorage.setItem('leaf-sidebar-collapsed', String(!current)); return !current; });
+  return <div className={`app-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
     <aside className="sidebar">
-      <a className="brand" href="/"><span className="brand-mark"><BookOpen size={21} /></span> Leaf</a>
+      <div className="sidebar-brand-row"><a className="brand" href="/" aria-label="Leaf library"><span className="brand-mark"><BookOpen size={21} /></span><span>Leaf</span></a><button className="sidebar-collapse" onClick={toggleSidebar} aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>{sidebarCollapsed ? <PanelLeftOpen/> : <PanelLeftClose/>}</button></div>
       <nav aria-label="Library navigation"><a className="nav-item active" href="#library"><BookOpen size={18} /> Library <span>{books.length}</span></a></nav>
-      <div className="sidebar-spacer" /><div className="sync-pill"><Wifi size={14}/> Saved on this device</div>
+      <div className="sidebar-spacer" /><button className="app-theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? <Sun/> : <Moon/>}<span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span></button><div className="sync-pill"><Wifi size={14}/> <span>Saved on this device</span></div>
       <button className="profile" onClick={() => void signOut()}><span>{(accountEmail ?? 'L').slice(0, 2).toUpperCase()}</span><span><strong>{accountEmail ?? 'Your library'}</strong><small>Sign out</small></span><ChevronDown size={15}/></button>
     </aside>
     <main className="library-main" id="library">
