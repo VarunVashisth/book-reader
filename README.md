@@ -2,7 +2,7 @@
 
 Leaf is a private, local-first personal library built with React 19, TypeScript, Google Drive, and IndexedDB.
 
-Leaf starts with an empty library: it does not ship demo or fixture books. Signed-in users can add their own PDF and EPUB files, manage them, and read them locally. Files and reading progress are stored in IndexedDB on the current browser. Google Drive transfer and remote sync are not implemented yet.
+Leaf starts with an empty library: it does not ship demo or fixture books. Signed-in users can add their own PDF and EPUB files, manage them, and read them locally. IndexedDB remains the offline source of truth. For Google-authorized accounts, books are uploaded to an app-created `Leaf Books` folder and reading data is synchronized through Drive's private `appDataFolder`.
 
 ## Reader capabilities
 
@@ -13,7 +13,7 @@ Leaf starts with an empty library: it does not ship demo or fixture books. Signe
 - EPUB pagination with restored CFI progress, font sizing, line height, and reading themes.
 - Real PDF/EPUB metadata and cover extraction, library sorting/filtering, recent reading, and completion state.
 
-Reader records are isolated by account in IndexedDB. Local accounts are device-local; Drive transfer and cross-device synchronization are still deferred.
+Reader records are isolated by the stable Google Drive permission ID in IndexedDB. Local accounts remain device-local and do not use Drive.
 
 ## Develop
 
@@ -45,7 +45,7 @@ npm run test:e2e
 5. Add exact authorized JavaScript origins, such as `http://localhost:5173` and your HTTPS Pages domain (no path).
 6. Copy only the client ID into the environment variable.
 
-Picker is not implemented in Phase 1. When added, existing files will be explicitly user-selected and the browser API key will be HTTP-referrer restricted.
+Google-authorized uploads use resumable Drive sessions. Importing arbitrary existing Drive files still requires a future Google Picker integration; `drive.file` intentionally does not expose the rest of a user's Drive.
 
 ## Cloudflare Pages
 

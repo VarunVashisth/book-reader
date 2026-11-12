@@ -6,6 +6,7 @@ import type { Book } from '../../types/domain';
 import { useAuthStore } from '../auth/authStore';
 import { addBook, deleteBook, renameBook } from './bookStorage';
 import { useAppTheme } from '../../app/AppTheme';
+import { deleteDriveFile, pullAndMergeSnapshot, pushSnapshot, uploadBook } from '../../services/drive/driveClient';
 
 export function LibraryPage() {
   const [query, setQuery] = useState('');
@@ -17,12 +18,12 @@ export function LibraryPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('leaf-sidebar-collapsed') === 'true');
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const { signOut, accountEmail, authMethod } = useAuthStore();
+  const { signOut, accountEmail, accountId: googleAccountId, authMethod, getValidToken } = useAuthStore();
   const { theme, toggleTheme } = useAppTheme();
-  const accountId = accountEmail ?? authMethod ?? 'local';
-  const refresh = async () => setBooks(await db.books.where('accountId').equals(accountId).reverse().sortBy('updatedAt'));
+  const accountId = googleAccountId ?? accountEmail ?? authMethod ?? 'local';
+  const refresh = async () => setBooks((await db.books.where('accountId').equals(accountId).reverse().sortBy('updatedAt')).filter((book) => !book.deletedAt));
 
-  useEffect(() => { void refresh(); }, [accountId]);
+  useEffect(() => { void (async () => { const token = getValidToken(); if (token) { setMessage('Syncing your Google Drive library…'); try { await pullAndMergeSnapshot(token, accountId); setMessage('Google Drive is up to date.'); } catch (error) { setMessage(error instanceof Error ? error.message : 'Drive sync could not be completed.'); } } await refresh(); })(); }, [accountId, getValidToken]);
 
   const upload = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = [...(event.target.files ?? [])];
@@ -30,7 +31,11 @@ export function LibraryPage() {
     if (!files.length) return;
     setMessage(`Adding ${files.length} book${files.length === 1 ? '' : 's'}…`);
     try {
-      for (const file of files) await addBook(accountId, file);
+      for (const file of files) {
+        const book = await addBook(accountId, file); const token = getValidToken();
+        if (token) { setMessage(`Uploading ${book.metadata.title} to Google Drive…`); const remote = await uploadBook(token, book, file, (percentage) => setMessage(`Uploading ${book.metadata.title}… ${percentage}%`)); await db.books.update(book.id, { file: { ...book.file, driveFileId: remote.id, modifiedTime: remote.modifiedTime }, updatedAt: new Date().toISOString() }); }
+      }
+      const token = getValidToken(); if (token) await pushSnapshot(token, accountId);
       await refresh();
       setMessage(`${files.length} book${files.length === 1 ? '' : 's'} added.`);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'The book could not be added.'); }
@@ -40,7 +45,8 @@ export function LibraryPage() {
     const action = window.prompt('Type a new title to rename this book, or DELETE to remove it.', book.metadata.title);
     if (action === null || action === book.metadata.title) return;
     try {
-      if (action === 'DELETE') await deleteBook(book); else await renameBook(book, action);
+      if (action === 'DELETE') { const token = getValidToken(); if (token && !book.file.driveFileId.startsWith('local:')) await deleteDriveFile(token, book.file.driveFileId); await deleteBook(book); } else await renameBook(book, action);
+      const token = getValidToken(); if (token) await pushSnapshot(token, accountId);
       await refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : 'The change could not be saved.'); }
   };
@@ -52,7 +58,7 @@ export function LibraryPage() {
     <aside className="sidebar">
       <div className="sidebar-brand-row"><a className="brand" href="/" aria-label="Leaf library"><span className="brand-mark"><BookOpen size={21} /></span><span>Leaf</span></a><button className="sidebar-collapse" onClick={toggleSidebar} aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>{sidebarCollapsed ? <PanelLeftOpen/> : <PanelLeftClose/>}</button></div>
       <nav aria-label="Library navigation"><a className="nav-item active" href="#library"><BookOpen size={18} /> Library <span>{books.length}</span></a></nav>
-      <div className="sidebar-spacer" /><button className="app-theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? <Sun/> : <Moon/>}<span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span></button><div className="sync-pill"><Wifi size={14}/> <span>Saved on this device</span></div>
+      <div className="sidebar-spacer" /><button className="app-theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? <Sun/> : <Moon/>}<span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span></button><div className="sync-pill"><Wifi size={14}/> <span>{authMethod === 'google' ? 'Synced with Google Drive' : 'Saved on this device'}</span></div>
       <button className="profile" onClick={() => void signOut()}><span>{(accountEmail ?? 'L').slice(0, 2).toUpperCase()}</span><span><strong>{accountEmail ?? 'Your library'}</strong><small>Sign out</small></span><ChevronDown size={15}/></button>
     </aside>
     <main className="library-main" id="library">

@@ -1,5 +1,6 @@
 import { db } from '../../services/storage/database';
 import type { Book, BookFormat } from '../../types/domain';
+import { downloadBook } from '../../services/drive/driveClient';
 
 const ACCEPTED_TYPES: Record<string, BookFormat> = {
   'application/pdf': 'pdf',
@@ -72,11 +73,17 @@ export async function renameBook(book: Book, title: string): Promise<void> {
 
 export async function deleteBook(book: Book): Promise<void> {
   await db.transaction('rw', db.books, db.cachedBooks, async () => {
-    await db.books.delete(book.id);
+    const now = new Date().toISOString();
+    await db.books.update(book.id, { deletedAt: now, updatedAt: now });
     await db.cachedBooks.where('[accountId+bookId]').equals([book.accountId, book.id]).delete();
   });
 }
 
-export async function getBookBlob(book: Book): Promise<Blob | undefined> {
-  return (await db.cachedBooks.where('[accountId+bookId]').equals([book.accountId, book.id]).first())?.blob;
+export async function getBookBlob(book: Book, token?: string): Promise<Blob | undefined> {
+  const cached = (await db.cachedBooks.where('[accountId+bookId]').equals([book.accountId, book.id]).first())?.blob;
+  if (cached || !token || book.file.driveFileId.startsWith('local:')) return cached;
+  const blob = await downloadBook(token, book.file.driveFileId);
+  await db.cachedBooks.put({ id: `${book.accountId}:${book.id}`, accountId: book.accountId, bookId: book.id, blob, cachedAt: new Date().toISOString() });
+  await db.books.update(book.id, { offlineAvailable: true });
+  return blob;
 }

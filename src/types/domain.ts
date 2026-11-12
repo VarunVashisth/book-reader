@@ -39,6 +39,7 @@ export interface Book {
   updatedAt: string;
   lastOpenedAt?: string;
   completedAt?: string;
+  deletedAt?: string;
   offlineAvailable: boolean;
   collectionIds: string[];
   tags: string[];

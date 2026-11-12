@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createTokenClient, revokeToken, type TokenResponse } from './googleIdentity';
 import { createLocalAccount, verifyLocalAccount } from './localAccount';
+import { getDriveUser } from '../../services/drive/driveClient';
 
 type AuthStatus = 'idle' | 'authorizing' | 'authorized' | 'reauth-required' | 'error';
 type AuthMethod = 'google' | 'local';
@@ -8,6 +9,8 @@ interface AuthState {
   status: AuthStatus;
   authMethod?: AuthMethod;
   accountEmail?: string;
+  accountId?: string;
+  accountName?: string;
   accessToken?: string;
   expiresAt?: number;
   error?: string;
@@ -26,6 +29,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   status: restoredLocalEmail ? 'authorized' : 'idle',
   authMethod: restoredLocalEmail ? 'local' : undefined,
   accountEmail: restoredLocalEmail ?? undefined,
+  accountId: restoredLocalEmail ?? undefined,
   authorize: async () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
     if (!clientId) {
@@ -36,13 +40,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     pendingRequest = true;
     set({ status: 'authorizing', error: undefined });
     try {
-      const client = await createTokenClient(clientId, (response: TokenResponse) => {
+      const client = await createTokenClient(clientId, async (response: TokenResponse) => {
         pendingRequest = false;
         if (response.error || !response.access_token) {
           set({ status: 'error', accessToken: undefined, expiresAt: undefined, error: response.error_description ?? response.error ?? 'Authorization was not completed.' });
           return;
         }
-        set({ status: 'authorized', authMethod: 'google', accessToken: response.access_token, expiresAt: Date.now() + Math.max(0, (response.expires_in ?? 3600) - 60) * 1000 });
+        try {
+          const user = await getDriveUser(response.access_token);
+          set({ status: 'authorized', authMethod: 'google', accountId: `google:${user.permissionId}`, accountEmail: user.emailAddress, accountName: user.displayName, accessToken: response.access_token, expiresAt: Date.now() + Math.max(0, (response.expires_in ?? 3600) - 60) * 1000 });
+        } catch (error) { set({ status: 'error', error: error instanceof Error ? error.message : 'Could not identify the Google Drive account.' }); }
       });
       client.requestAccessToken({ prompt: 'consent' });
     } catch (error) {
@@ -55,7 +62,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const accountEmail = await verifyLocalAccount(email, password);
       sessionStorage.setItem(LOCAL_SESSION_KEY, accountEmail);
-      set({ status: 'authorized', authMethod: 'local', accountEmail, accessToken: undefined, expiresAt: undefined });
+      set({ status: 'authorized', authMethod: 'local', accountId: accountEmail, accountEmail, accessToken: undefined, expiresAt: undefined });
     } catch (error) {
       set({ status: 'error', error: error instanceof Error ? error.message : 'Sign-in failed.' });
     }
@@ -65,7 +72,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const accountEmail = await createLocalAccount(email, password);
       sessionStorage.setItem(LOCAL_SESSION_KEY, accountEmail);
-      set({ status: 'authorized', authMethod: 'local', accountEmail, accessToken: undefined, expiresAt: undefined });
+      set({ status: 'authorized', authMethod: 'local', accountId: accountEmail, accountEmail, accessToken: undefined, expiresAt: undefined });
     } catch (error) {
       set({ status: 'error', error: error instanceof Error ? error.message : 'Account creation failed.' });
     }
@@ -73,7 +80,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     const { accessToken: token, authMethod } = get();
     sessionStorage.removeItem(LOCAL_SESSION_KEY);
-    set({ status: 'idle', authMethod: undefined, accountEmail: undefined, accessToken: undefined, expiresAt: undefined, error: undefined });
+    set({ status: 'idle', authMethod: undefined, accountId: undefined, accountEmail: undefined, accountName: undefined, accessToken: undefined, expiresAt: undefined, error: undefined });
     if (token && authMethod === 'google') await revokeToken(token);
   },
   getValidToken: () => {
