@@ -82,7 +82,7 @@ export async function deleteBook(book: Book): Promise<void> {
 export async function getBookBlob(book: Book, token?: string): Promise<Blob | undefined> {
   const cached = (await db.cachedBooks.where('[accountId+bookId]').equals([book.accountId, book.id]).first())?.blob;
   if (cached || !token || book.file.driveFileId.startsWith('local:')) return cached;
-  const blob = await downloadBook(token, book.file.driveFileId);
+  const blob = await downloadBook(token, book.file.driveFileId, book.id);
   await db.cachedBooks.put({ id: `${book.accountId}:${book.id}`, accountId: book.accountId, bookId: book.id, blob, cachedAt: new Date().toISOString() });
   await db.books.update(book.id, { offlineAvailable: true });
   return blob;

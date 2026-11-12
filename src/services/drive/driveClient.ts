@@ -7,7 +7,7 @@ const APP_FOLDER = 'appDataFolder';
 const SNAPSHOT_NAME = 'leaf-library-v1.json';
 
 type DriveUser = { permissionId: string; displayName: string; emailAddress: string; photoLink?: string };
-type DriveFile = { id: string; name: string; modifiedTime?: string; appProperties?: Record<string, string> };
+type DriveFile = { id: string; name: string; modifiedTime?: string; appProperties?: Record<string, string>; parents?: string[]; trashed?: boolean };
 type Snapshot = { version: 1; updatedAt: string; books: Book[]; annotations: Annotation[]; progress: ReadingProgress[]; preferences?: UserPreferences };
 
 async function driveFetch<T>(token: string, url: string, init: RequestInit = {}): Promise<T> {
@@ -36,6 +36,13 @@ async function ensureBookFolder(token: string): Promise<string> {
   return created.id;
 }
 
+async function assertManagedBook(token: string, fileId: string, bookId: string): Promise<void> {
+  const folderId = await ensureBookFolder(token);
+  const file = await driveFetch<DriveFile>(token, `${DRIVE_API}/files/${encodeURIComponent(fileId)}?fields=id,name,parents,trashed,appProperties`);
+  const ownedByLeaf = !file.trashed && file.parents?.includes(folderId) && file.appProperties?.leafBookId === bookId;
+  if (!ownedByLeaf) throw new Error('Leaf refused to access a Drive file outside its managed books folder.');
+}
+
 export async function uploadBook(token: string, book: Book, blob: Blob, onProgress?: (percentage: number) => void): Promise<DriveFile> {
   const parent = await ensureBookFolder(token);
   const metadata = { name: `${book.metadata.title}.${book.format}`, parents: [parent], mimeType: book.file.mimeType, appProperties: { leafBookId: book.id, contentHash: book.file.contentHash } };
@@ -53,14 +60,16 @@ export async function uploadBook(token: string, book: Book, blob: Blob, onProgre
   throw new Error('Drive upload ended unexpectedly.');
 }
 
-export async function downloadBook(token: string, fileId: string): Promise<Blob> {
+export async function downloadBook(token: string, fileId: string, bookId: string): Promise<Blob> {
+  await assertManagedBook(token, fileId, bookId);
   const response = await fetch(`${DRIVE_API}/files/${encodeURIComponent(fileId)}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
   if (response.status === 401) throw new Error('Google authorization expired. Sign in again.');
   if (!response.ok) throw new Error(`The book could not be downloaded from Drive (${response.status}).`);
   return response.blob();
 }
 
-export async function deleteDriveFile(token: string, fileId: string): Promise<void> {
+export async function deleteDriveFile(token: string, fileId: string, bookId: string): Promise<void> {
+  await assertManagedBook(token, fileId, bookId);
   await driveFetch<void>(token, `${DRIVE_API}/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
 }
 

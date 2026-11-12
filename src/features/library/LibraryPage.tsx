@@ -45,7 +45,7 @@ export function LibraryPage() {
     const action = window.prompt('Type a new title to rename this book, or DELETE to remove it.', book.metadata.title);
     if (action === null || action === book.metadata.title) return;
     try {
-      if (action === 'DELETE') { const token = getValidToken(); if (token && !book.file.driveFileId.startsWith('local:')) await deleteDriveFile(token, book.file.driveFileId); await deleteBook(book); } else await renameBook(book, action);
+      if (action === 'DELETE') { const token = getValidToken(); if (token && !book.file.driveFileId.startsWith('local:')) await deleteDriveFile(token, book.file.driveFileId, book.id); await deleteBook(book); } else await renameBook(book, action);
       const token = getValidToken(); if (token) await pushSnapshot(token, accountId);
       await refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : 'The change could not be saved.'); }
